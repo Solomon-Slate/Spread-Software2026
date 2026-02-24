@@ -1,0 +1,178 @@
+.financial-grid-container {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 13px;
+    background-color: #ffffff;
+    border: 1px solid #d0d0d0;
+  }
+  
+  .financial-grid {
+    display: grid;
+    min-width: max-content;
+  }
+  
+  .grid-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #f5f5f5;
+    border-bottom: 2px solid #333;
+    padding: 10px 8px;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .grid-header--label {
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    background-color: #f5f5f5;
+    border-right: 1px solid #d0d0d0;
+  }
+  
+  .grid-header--period {
+    text-align: center;
+    border-left: 1px solid #e8e8e8;
+  }
+  
+  .grid-row-label {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background-color: #ffffff;
+    border-right: 1px solid #d0d0d0;
+    border-bottom: 1px solid #e8e8e8;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  
+  .grid-row-label--header {
+    font-weight: 700;
+  }
+  
+  .grid-cell-wrapper {
+    border-bottom: 1px solid #e8e8e8;
+    border-left: 1px solid #e8e8e8;
+    padding: 0;
+  }
+  
+  .row-data { background-color: #ffffff; }
+  
+  .row-subtotal {
+    font-weight: 600;
+    background-color: #f0f0f0;
+    border-top: 1px solid #333;
+  }
+  .row-subtotal .grid-row-label,
+  .row-subtotal .grid-cell-wrapper { background-color: #f0f0f0; }
+  
+  .row-total {
+    font-weight: 700;
+    background-color: #e0e0e0;
+    border-top: 3px double #333;
+  }
+  .row-total .grid-row-label,
+  .row-total .grid-cell-wrapper { background-color: #e0e0e0; }
+  
+  .row-sectionHeader {
+    font-weight: 700;
+    background-color: #d0d8e0;
+    font-size: 1.1em;
+    padding: 10px 12px;
+    border-bottom: 1px solid #b0b8c0;
+  }
+  
+  .row-spacer {
+    background-color: #ffffff;
+    border-bottom: none;
+  }
+  
+  .grid-cell {
+    width: 100%;
+    height: 100%;
+    min-height: 28px;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    text-align: right;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    color: #333;
+    box-sizing: border-box;
+    outline: none;
+  }
+  
+  .grid-cell--focused {
+    background-color: #e3f2fd;
+    outline: 2px solid #1976d2;
+    outline-offset: -2px;
+  }
+  
+  .grid-cell--editing {
+    background-color: #ffffff;
+    outline: 2px solid #1565c0;
+    outline-offset: -2px;
+  }
+  
+  .grid-cell--readonly {
+    cursor: default;
+    color: #555;
+  }
+  
+  .grid-cell--negative {
+    color: #c62828;
+  }
+  
+  .row-data:hover .grid-row-label,
+  .row-data:hover .grid-cell-wrapper { background-color: #fafafa; }
+  /* Period controls row */
+.grid-period-controls-spacer {
+  background-color: #fff;
+  height: 24px;
+}
+
+.grid-period-controls {
+  display: flex;
+  justify-content: stretch;
+  gap: 0;
+  padding: 0;
+  background-color: #fff;
+  height: 24px;
+  align-items: stretch;
+}
+
+.period-control-btn {
+  flex: 1;
+  height: 100%;
+  padding: 0;
+  border: 1px solid #ccc;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.period-control-btn.clear {
+  background-color: #fff3e0;
+  color: #e65100;
+  border-color: #ffcc80;
+}
+
+.period-control-btn.clear:hover {
+  background-color: #ffe0b2;
+}
+
+.period-control-btn.delete {
+  background-color: #ffebee;
+  color: #c62828;
+  border-color: #ef9a9a;
+}
+
+.period-control-btn.delete:hover {
+  background-color: #ffcdd2;
+}
