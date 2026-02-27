@@ -45,6 +45,8 @@ function App() {
         periodId: `${newDateStr}_v1`,
         periodEnd: newDateStr,
         periodType: 'Y',
+        isActive: true,
+        isIncluded: true,
       };
       return [...prev, newPeriod];
     });
@@ -101,6 +103,8 @@ function App() {
       periodEnd: sourcePeriod.periodEnd,
       periodType: sourcePeriod.periodType,
       variant: variantLabel.trim(),
+      isActive: false,
+      isIncluded: true,
     };
 
     setPeriods(prev => {
@@ -126,6 +130,29 @@ function App() {
       });
     }
   }, [periods, rows, nextVariantId]);
+
+  const handleToggleActive = useCallback((periodId: string) => {
+    setPeriods(prev => {
+      const targetPeriod = prev.find(p => p.periodId === periodId);
+      if (!targetPeriod) return prev;
+      const siblings = prev.filter(p => p.periodEnd === targetPeriod.periodEnd);
+      if (targetPeriod.isActive && siblings.length === 1) {
+        window.alert('Cannot deactivate the only version of this period.');
+        return prev;
+      }
+      return prev.map(p => {
+        if (p.periodEnd === targetPeriod.periodEnd) {
+          if (!targetPeriod.isActive) {
+            return { ...p, isActive: p.periodId === periodId };
+          }
+          if (p.periodId === periodId) {
+            return { ...p, isActive: false };
+          }
+        }
+        return p;
+      });
+    });
+  }, []);
 
   const handleInsertRow = useCallback((atIndex: number, position: 'above' | 'below') => {
     const label = window.prompt('Enter account name:');
@@ -276,6 +303,7 @@ function App() {
           onDeletePeriod={handleDeletePeriod}
           onClearPeriod={handleClearPeriod}
           onInsertColumn={handleInsertColumn}
+          onToggleActive={handleToggleActive}
           onInsertRow={handleInsertRow}
           onDeleteRow={handleDeleteRow}
           onMoveRow={handleMoveRow}

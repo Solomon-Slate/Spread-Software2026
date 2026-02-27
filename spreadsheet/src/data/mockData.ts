@@ -20,9 +20,9 @@ export const mockRows: RowDefinition[] = [
 ];
 
 export const allPeriods: PeriodDefinition[] = [
-  { periodId: '2022-12-31_v1', periodEnd: '2022-12-31', periodType: 'Y' },
-  { periodId: '2023-12-31_v1', periodEnd: '2023-12-31', periodType: 'Y' },
-  { periodId: '2024-12-31_v1', periodEnd: '2024-12-31', periodType: 'Y' },
+  { periodId: '2022-12-31_v1', periodEnd: '2022-12-31', periodType: 'Y', isActive: true, isIncluded: true },
+  { periodId: '2023-12-31_v1', periodEnd: '2023-12-31', periodType: 'Y', isActive: true, isIncluded: true },
+  { periodId: '2024-12-31_v1', periodEnd: '2024-12-31', periodType: 'Y', isActive: true, isIncluded: true },
 ];
 
 export function createMockValues(): Map<string, number> {

@@ -31,6 +31,7 @@ export const FinancialGrid: React.FC<GridProps> = ({
   onDeletePeriod,
   onClearPeriod,
   onInsertColumn,
+  onToggleActive,
   onInsertRow,
   onDeleteRow,
   onMoveRow,
@@ -239,6 +240,11 @@ export const FinancialGrid: React.FC<GridProps> = ({
       },
       { label: '', onClick: () => {}, separator: true },
       {
+        label: period.isActive ? '✓ Active (click to deactivate)' : 'Set as Active',
+        onClick: () => onToggleActive?.(period.periodId),
+      },
+      { label: '', onClick: () => {}, separator: true },
+      {
         label: `Clear Values`,
         onClick: () => {
           if (window.confirm(`Clear all values in ${label}?`)) {
@@ -256,7 +262,7 @@ export const FinancialGrid: React.FC<GridProps> = ({
         disabled: periods.length <= 1,
       },
     ];
-  }, [periods, dateFormat, onInsertColumn, onClearPeriod, onDeletePeriod]);
+  }, [periods, dateFormat, onInsertColumn, onToggleActive,onClearPeriod, onDeletePeriod]);
 
   const gridTemplateColumns = useMemo(() => {
     const rowNumWidth = '40px';
@@ -354,6 +360,20 @@ export const FinancialGrid: React.FC<GridProps> = ({
             onContextMenu={(e) => handleColumnContextMenu(e, colIndex)}
           >
             {formatPeriodHeader(period)}
+          </div>
+        ))}
+        
+        {/* Active/Inactive toggle bar row */}
+        <div className="grid-active-bar-spacer"></div>
+        <div className="grid-active-bar-spacer grid-active-bar-label">Status</div>
+        {periods.map((period) => (
+          <div
+            key={`active-${period.periodId}`}
+            className={`grid-active-bar ${period.isActive ? 'active' : 'inactive'}`}
+            onClick={() => onToggleActive?.(period.periodId)}
+            title={period.isActive ? 'Active — click to deactivate' : 'Inactive — click to activate'}
+          >
+            {period.isActive ? 'Active' : 'Inactive'}
           </div>
         ))}
 

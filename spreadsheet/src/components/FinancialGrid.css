@@ -208,6 +208,53 @@
 .period-control-btn.delete:hover {
   background-color: #ffcdd2;
 }
+/* Active/Inactive toggle bar */
+.grid-active-bar-spacer {
+  background-color: #fff;
+  height: 22px;
+}
+.grid-active-bar-label {
+  position: sticky;
+  left: 40px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  font-size: 10px;
+  color: #999;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.grid-active-bar {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s, color 0.15s;
+  border-left: 1px solid #e8e8e8;
+}
+.grid-active-bar.active {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-bottom: 3px solid #4caf50;
+}
+.grid-active-bar.inactive {
+  background-color: #fafafa;
+  color: #bbb;
+  border-bottom: 3px solid #e0e0e0;
+}
+.grid-active-bar.active:hover {
+  background-color: #c8e6c9;
+}
+.grid-active-bar.inactive:hover {
+  background-color: #f5f5f5;
+  color: #888;
+}
 /* Period column numbers */
 .grid-colnum {
   display: flex;
