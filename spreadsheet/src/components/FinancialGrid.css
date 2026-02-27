@@ -26,7 +26,7 @@
   
   .grid-header--label {
     position: sticky;
-    left: 40;
+    left: 40px;
     z-index: 20;
     background-color: #f5f5f5;
     border-right: 1px solid #d0d0d0;
@@ -71,7 +71,7 @@
   
   .grid-row-label {
     position: sticky;
-    left: 40;
+    left: 40px;
     z-index: 5;
     background-color: #ffffff;
     border-right: 1px solid #d0d0d0;
@@ -207,4 +207,24 @@
 
 .period-control-btn.delete:hover {
   background-color: #ffcdd2;
+}
+/* Period column numbers */
+.grid-colnum {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  height: 20px;
+  font-size: 10px;
+  color: #999;
+  user-select: none;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+/* Variant label under date in column header */
+.period-variant-label {
+  font-size: 10px;
+  font-weight: 400;
+  color: #888;
+  margin-top: 2px;
 }
