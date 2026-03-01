@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { FinancialGrid } from './components/FinancialGrid';
 import { mockRows, allPeriods, createMockValues } from './data/mockData';
-import { NegativeDisplayFormat, DisplayScale, DateDisplayFormat, CellChange, PeriodDefinition, RowDefinition, makeValueKey } from './types/grid.types';
+import { NegativeDisplayFormat, DisplayScale, DateDisplayFormat, CellChange, CellHighlight, PeriodDefinition, RowDefinition, makeValueKey } from './types/grid.types';
 import './App.css';
 
 function App() {
@@ -12,6 +12,8 @@ function App() {
   const [periods, setPeriods] = useState<PeriodDefinition[]>(allPeriods);
   const [rows, setRows] = useState<RowDefinition[]>([...mockRows]);
   const [hiddenPeriods, setHiddenPeriods] = useState<Set<string>>(new Set());
+  const [highlights, setHighlights] = useState<Map<string, CellHighlight>>(new Map());
+  const [comments, setComments] = useState<Map<string, string>>(new Map());
   const [nextCustomId, setNextCustomId] = useState(1);
   const [nextVariantId, setNextVariantId] = useState(1);
   const [companyName] = useState('Acme Manufacturing, Inc.');
@@ -32,6 +34,29 @@ function App() {
         }
       }
       return newValues;
+    });
+  }, []);
+
+  const handleHighlightChange = useCallback((key: string, highlight: CellHighlight | null) => {
+    setHighlights(prev => {
+      const next = new Map(prev);
+      if (highlight === null) {
+        next.delete(key);
+      } else {
+        next.set(key, highlight);
+      }
+      return next;
+    });
+  }, []);
+  const handleCommentChange = useCallback((key: string, comment: string | null) => {
+    setComments(prev => {
+      const next = new Map(prev);
+      if (comment === null) {
+        next.delete(key);
+      } else {
+        next.set(key, comment);
+      }
+      return next;
     });
   }, []);
 
@@ -114,7 +139,6 @@ function App() {
       return newPeriods;
     });
 
-    // If clone, copy all values from source period
     if (mode === 'clone') {
       setValues(prev => {
         const newValues = new Map(prev);
@@ -286,6 +310,7 @@ function App() {
             value={displayScale}
             onChange={e => setDisplayScale(e.target.value as DisplayScale)}
           >
+            <option value="decimal">Decimal</option>
             <option value="units">Units</option>
             <option value="thousands">Thousands</option>
             <option value="millions">Millions</option>
@@ -298,8 +323,12 @@ function App() {
           rows={rows}
           periods={visiblePeriods}
           values={values}
+          highlights={highlights}
           companyName={companyName}
           onChange={handleChange}
+          onHighlightChange={handleHighlightChange}
+          comments={comments}
+          onCommentChange={handleCommentChange}
           onDeletePeriod={handleDeletePeriod}
           onClearPeriod={handleClearPeriod}
           onInsertColumn={handleInsertColumn}
@@ -310,7 +339,7 @@ function App() {
           negativeFormat={negativeFormat}
           displayScale={displayScale}
           dateFormat={dateFormat}
-          decimalPlaces={0}
+          decimalPlaces={displayScale === 'decimal' ? 2 : 0}
         />
       </main>
     </div>

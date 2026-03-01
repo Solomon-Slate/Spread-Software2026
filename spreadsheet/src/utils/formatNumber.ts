@@ -16,7 +16,7 @@ function getScaleDivisor(scale: DisplayScale): number {
   switch (scale) {
     case 'thousands': return 1000;
     case 'millions': return 1000000;
-    default: return 1;
+    default: return 1; // 'units' and 'decimal' both show full magnitude
   }
 }
 
@@ -69,4 +69,14 @@ export function parseNumber(input: string): number | null {
 export function formatForEditing(value: number | null | undefined): string {
   if (value === null || value === undefined) return '';
   return value.toString();
+}
+
+/**
+ * Round a value to 2 decimal places (cents).
+ * Applied at commit time to prevent hidden precision beyond cents.
+ * Uses arithmetic rounding: Math.round(value * 100) / 100
+ */
+export function roundToCents(value: number | null): number | null {
+  if (value === null) return null;
+  return Math.round(value * 100) / 100;
 }

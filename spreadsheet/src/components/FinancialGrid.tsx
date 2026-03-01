@@ -8,10 +8,13 @@ import {
   GridState,
   CellPosition,
   CellChange,
+  CellHighlight,
   makeValueKey,
   formatPeriodDate,
 } from '../types/grid.types';
 import './FinancialGrid.css';
+
+const DEFAULT_HIGHLIGHT: CellHighlight = { fontHighlight: null, backgroundHighlight: null, boldBorder: false };
 
 interface ContextMenuState {
   visible: boolean;
@@ -19,15 +22,19 @@ interface ContextMenuState {
   y: number;
   rowIndex: number;
   colIndex: number;
-  target: 'row' | 'column';
+  target: 'row' | 'column' | 'cell';
 }
 
 export const FinancialGrid: React.FC<GridProps> = ({
   rows,
   periods,
   values,
+  highlights,
   companyName,
   onChange,
+  onHighlightChange,
+  comments,
+  onCommentChange,
   onDeletePeriod,
   onClearPeriod,
   onInsertColumn,
@@ -54,6 +61,8 @@ export const FinancialGrid: React.FC<GridProps> = ({
     colIndex: -1,
     target: 'row',
   });
+
+  
 
   const rowNumbers = useMemo(() => {
     const map = new Map<number, number>();
@@ -174,6 +183,19 @@ export const FinancialGrid: React.FC<GridProps> = ({
     });
   }, []);
 
+  const handleCellContextMenu = useCallback((e: React.MouseEvent, rowIndex: number, colIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      rowIndex,
+      colIndex,
+      target: 'cell',
+    });
+  }, []);
+
   const closeContextMenu = useCallback(() => {
     setContextMenu(prev => ({ ...prev, visible: false }));
   }, []);
@@ -263,6 +285,75 @@ export const FinancialGrid: React.FC<GridProps> = ({
       },
     ];
   }, [periods, dateFormat, onInsertColumn, onToggleActive,onClearPeriod, onDeletePeriod]);
+
+  const getCellContextMenuActions = useCallback((rowIndex: number, colIndex: number): ContextMenuAction[] => {
+    const row = rows[rowIndex];
+    const period = periods[colIndex];
+    const key = makeValueKey(row.lineItemCode, period.periodId);
+    const current = highlights.get(key) || { ...DEFAULT_HIGHLIGHT };
+
+    const setHighlight = (update: Partial<CellHighlight>) => {
+      const merged = { ...current, ...update };
+      const isEmpty = !merged.fontHighlight && !merged.backgroundHighlight && !merged.boldBorder;
+      onHighlightChange?.(key, isEmpty ? null : merged);
+    };
+
+    return [
+      { label: 'Font Color', onClick: () => {}, separator: false, disabled: true },
+      {
+        label: `${current.fontHighlight === 'red' ? '✓ ' : '  '}Bold Red`,
+        onClick: () => setHighlight({ fontHighlight: current.fontHighlight === 'red' ? null : 'red' }),
+      },
+      {
+        label: `${current.fontHighlight === 'green' ? '✓ ' : '  '}Bold Green`,
+        onClick: () => setHighlight({ fontHighlight: current.fontHighlight === 'green' ? null : 'green' }),
+      },
+      {
+        label: `${current.fontHighlight === 'blue' ? '✓ ' : '  '}Bold Blue`,
+        onClick: () => setHighlight({ fontHighlight: current.fontHighlight === 'blue' ? null : 'blue' }),
+      },
+      { label: '', onClick: () => {}, separator: true },
+      { label: 'Background', onClick: () => {}, separator: false, disabled: true },
+      {
+        label: `${current.backgroundHighlight === 'orange' ? '✓ ' : '  '}Orange`,
+        onClick: () => setHighlight({ backgroundHighlight: current.backgroundHighlight === 'orange' ? null : 'orange' }),
+      },
+      {
+        label: `${current.backgroundHighlight === 'yellow' ? '✓ ' : '  '}Yellow`,
+        onClick: () => setHighlight({ backgroundHighlight: current.backgroundHighlight === 'yellow' ? null : 'yellow' }),
+      },
+      {
+        label: `${current.backgroundHighlight === 'pink' ? '✓ ' : '  '}Pink`,
+        onClick: () => setHighlight({ backgroundHighlight: current.backgroundHighlight === 'pink' ? null : 'pink' }),
+      },
+      { label: '', onClick: () => {}, separator: true },
+      {
+        label: `${current.boldBorder ? '✓ ' : '  '}Bold Border`,
+        onClick: () => setHighlight({ boldBorder: !current.boldBorder }),
+      },
+      { label: '', onClick: () => {}, separator: true },
+      {
+        label: 'Clear All Formatting',
+        onClick: () => onHighlightChange?.(key, null),
+        disabled: !highlights.has(key),
+      },
+      { label: '', onClick: () => {}, separator: true },
+      {
+        label: comments.has(key) ? 'Edit Comment' : 'Add Comment',
+        onClick: () => {
+          const existing = comments.get(key) || '';
+          const input = window.prompt('Enter comment:', existing);
+          if (input !== null) {
+            onCommentChange?.(key, input.trim() === '' ? null : input.trim());
+          }
+        },
+      },
+      {
+        label: 'Remove Comment',
+        onClick: () => onCommentChange?.(key, null),
+        disabled: !comments.has(key),
+      },];
+  }, [rows, periods, highlights, onHighlightChange,comments,onCommentChange]);
 
   const gridTemplateColumns = useMemo(() => {
     const rowNumWidth = '40px';
@@ -416,7 +507,15 @@ export const FinancialGrid: React.FC<GridProps> = ({
                 const key = makeValueKey(row.lineItemCode, period.periodId);
                 const value = values.get(key) ?? null;
                 return (
-                  <div key={`${row.lineItemCode}-${period.periodId}`} className={`grid-cell-wrapper ${rowClass}`}>
+                  <div
+                    key={`${row.lineItemCode}-${period.periodId}`}
+                    className={`grid-cell-wrapper ${rowClass}${comments.has(key) ? ' grid-cell-wrapper--has-comment' : ''}`}
+                    onContextMenu={(e) => handleCellContextMenu(e, rowIndex, colIndex)}
+                  >
+                    {comments.has(key) && (
+                      <div className="cell-comment-tooltip">{comments.get(key)}</div>
+                    )}
+                  
                     <GridCell
                       value={value}
                       isEditable={row.isEditable}
@@ -426,6 +525,7 @@ export const FinancialGrid: React.FC<GridProps> = ({
                       negativeFormat={negativeFormat}
                       displayScale={displayScale}
                       decimalPlaces={decimalPlaces}
+                      highlight={highlights.get(key) || null}
                       onFocus={() => handleFocusChange({ rowIndex, colIndex })}
                       onStartEdit={() => handleStartEdit({ rowIndex, colIndex })}
                       onEditChange={handleEditChange}
@@ -446,7 +546,9 @@ export const FinancialGrid: React.FC<GridProps> = ({
           x={contextMenu.x}
           y={contextMenu.y}
           actions={
-            contextMenu.target === 'row'
+            contextMenu.target === 'cell'
+              ? getCellContextMenuActions(contextMenu.rowIndex, contextMenu.colIndex)
+              : contextMenu.target === 'row'
               ? getRowContextMenuActions(contextMenu.rowIndex)
               : getColumnContextMenuActions(contextMenu.colIndex)
           }

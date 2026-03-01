@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { formatNumber, parseNumber } from '../utils/formatNumber';
-import { NegativeDisplayFormat, DisplayScale } from '../types/grid.types';
+import { formatNumber, parseNumber, roundToCents } from '../utils/formatNumber';
+import { NegativeDisplayFormat, DisplayScale, CellHighlight } from '../types/grid.types';
 
 interface GridCellProps {
   value: number | null;
@@ -11,6 +11,7 @@ interface GridCellProps {
   negativeFormat: NegativeDisplayFormat;
   displayScale: DisplayScale;
   decimalPlaces: number;
+  highlight?: CellHighlight | null;
   onFocus: () => void;
   onStartEdit: () => void;
   onEditChange: (value: string) => void;
@@ -28,6 +29,7 @@ export const GridCell: React.FC<GridCellProps> = ({
   negativeFormat,
   displayScale,
   decimalPlaces,
+  highlight,
   onFocus,
   onStartEdit,
   onEditChange,
@@ -38,7 +40,6 @@ export const GridCell: React.FC<GridCellProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [localValue, setLocalValue] = useState(editValue);
 
-  // Sync local value when editValue changes (entering edit mode)
   useEffect(() => {
     if (isEditing) {
       setLocalValue(editValue);
@@ -62,7 +63,7 @@ export const GridCell: React.FC<GridCellProps> = ({
   const handleBlur = useCallback(() => {
     if (isEditing) {
       const parsed = parseNumber(localValue);
-      onCommit(parsed);
+      onCommit(roundToCents(parsed));
     }
   }, [isEditing, localValue, onCommit]);
 
@@ -79,13 +80,12 @@ export const GridCell: React.FC<GridCellProps> = ({
       if (e.key === 'Enter') {
         e.preventDefault();
         const parsed = parseNumber(localValue);
-        onCommit(parsed);
+        onCommit(roundToCents(parsed));
       } else if (e.key === 'Escape') {
         e.preventDefault();
         onCancel();
       }
     } else {
-      // Not editing - Backspace or Delete clears the cell
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
         onCommit(null);
@@ -104,7 +104,10 @@ export const GridCell: React.FC<GridCellProps> = ({
     if (isFocused) classes.push('grid-cell--focused');
     if (isEditing) classes.push('grid-cell--editing');
     if (!isEditable) classes.push('grid-cell--readonly');
-    if (value !== null && value < 0) classes.push('grid-cell--negative');
+    if (value !== null && value < 0 && !highlight?.fontHighlight) classes.push('grid-cell--negative');
+    if (highlight?.fontHighlight) classes.push(`grid-cell--font-${highlight.fontHighlight}`);
+    if (highlight?.backgroundHighlight) classes.push(`grid-cell--bg-${highlight.backgroundHighlight}`);
+    if (highlight?.boldBorder) classes.push('grid-cell--bold-border');
     return classes.join(' ');
   };
 
