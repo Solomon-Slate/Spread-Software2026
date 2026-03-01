@@ -233,7 +233,7 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Financial Spreading Grid</h1>
+        <h1>J-Spread</h1>
       </header>
 
       <div className="toolbar">
