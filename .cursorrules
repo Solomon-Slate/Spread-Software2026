@@ -1,0 +1,72 @@
+# J-Spread Project Rules — Cursor AI Coding Standards
+# This file is read automatically by Cursor for all code in this project.
+
+## Project Overview
+This is J-Spread, a commercial financial spreading platform for bank lending.
+Tech stack: React + TypeScript frontend, planned C# / ASP.NET Core backend.
+Architecture doc: /docs/JSpread_Architecture_v4.md
+
+## Commenting Standards — MANDATORY
+
+### File Headers
+Every .ts and .tsx file MUST begin with a block comment:
+/**
+ * [Filename] — [One-line purpose]
+ * 
+ * [2-3 sentences on what this file does and its role in the architecture.]
+ * [Mention key dependencies or which components consume/produce its exports.]
+ */
+
+### Interfaces and Types
+Every interface and type MUST have a JSDoc comment explaining the CONCEPT, not just restating the type name.
+Every field that is not immediately self-evident MUST have an inline comment.
+Financial domain fields (lineItemCode, tags, period types, statement quality, etc.) require
+especially detailed comments explaining the banking/accounting meaning.
+
+### Functions and Callbacks
+Every exported function MUST have a JSDoc comment with:
+- What it does
+- Why it exists (business reason, not just technical)
+- Any non-obvious behavior or side effects
+
+### Business Logic
+Any code implementing financial rules, reclassification logic, cash flow derivation,
+combine logic, or analytical calculations MUST be heavily commented explaining the "why"
+from a commercial banking perspective. A developer with no banking background should be
+able to understand the intent from the comments alone.
+
+## Code Style
+
+### Architecture Principles
+- The grid is an INPUT/OUTPUT interface, not the data model
+- Real data is tagged values: each value knows WHAT it is (lineItemCode), WHEN it is (period), WHO it belongs to (entity)
+- Analysis is driven by tags/queries, never by grid position
+- Row position within sections determines classification for subtotal purposes
+- Cash flow is DERIVED from BS + IS per entity; combined CF is derived from combined BS + IS
+- Highlights, comments, and formatting are attributes of specific value cells (row × period × statement × entity)
+
+### React Patterns
+- Functional components with hooks only (no class components)
+- State that will eventually come from backend should be structured to match expected API shape
+- Keep FinancialGrid as a pure display/input component — it receives data via props
+- Business logic belongs in hooks, utils, or App-level handlers, not in grid rendering
+
+### TypeScript
+- Strict typing everywhere — no `any` unless absolutely unavoidable with a comment explaining why
+- Use discriminated unions for statement types, row types, etc.
+- Prefer interfaces over type aliases for object shapes
+- Export all types from types/ directory files
+
+### Naming
+- lineItemCode: dot-notation taxonomy (e.g., Asset.Current.Tangible.AR.Trade)
+- periodId: system-generated unique identifier for a specific period instance
+- entityId: system-generated unique identifier for an entity
+- Statement types: 'BS' | 'IS' | 'CF'
+- Row types: 'data' | 'subtotal' | 'total' | 'sectionHeader' | 'spacer'
+
+### File Organization
+- components/ — React UI components and their CSS
+- types/ — All TypeScript interfaces, types, and type utilities
+- data/ — Mock data and eventually API service files
+- hooks/ — Custom React hooks
+- utils/ — Pure utility functions (formatting, math, helpers)
