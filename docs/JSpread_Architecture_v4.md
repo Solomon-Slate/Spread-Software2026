@@ -407,3 +407,46 @@ The entity/group/portfolio relationship model is the most complex aspect of the 
 ---
 
 *Architecture Document v4.0 — J-Spread*
+
+
+---
+
+## 18. SESSION LOG — March 1, 2026
+
+### What Was Completed:
+- **Phase 2 (Navigation Shell): DONE.** AppHeader, EntityTabBar (with Combined tab), StatementTabBar (BS/IS clickable, CF greyed out) all implemented and working.
+- **Income Statement mock data added.** Switching between BS and IS tabs swaps the grid data. Both are independently editable.
+- **`.cursorrules` added to project root.** Defines commenting standards, architecture principles, and coding conventions for Cursor AI.
+- **`spread.types.ts` created** (`spreadsheet/src/types/spread.types.ts`). This is the canonical data model and serves as the spec document for the state architecture. Heavily commented with banking domain context.
+
+### Key Architecture Decisions Confirmed:
+1. **Highlights and comments are cell-level attributes** — they live inside StatementData at the row × period intersection. They do NOT carry across statements, entities, or to the combined view.
+2. **Periods are per-entity.** Different entities can have different fiscal years and different reporting frequencies.
+3. **Display settings are global** (negative format, scale, date format apply to whole workspace).
+4. **Row templates are per-entity per-statement.** Standard templates provide a starting point but entities can diverge completely. Different industries have very different account structures.
+5. **Cash flow is derived per-entity** from that entity's own BS and IS. Combined cash flow is derived from the combined BS and IS — NOT by summing individual entity cash flows.
+6. **The grid is an I/O interface, not the data model.** Position within sections determines classification (affects subtotals and tags), but the underlying data is tagged values queried by lineItemCode.
+7. **Row reclassification (moving between sections) changes the classification tag** — this is a substantive analytical decision with validation rules. A reclassification rules document is pending (does not block current development).
+8. **Combined view** matches by lineItemCode across selected entities. Sums what matches, carries over what doesn't. Warns on period mismatches.
+
+### Items Identified But Not Yet Built:
+- `fiscalYearEndMonth` field on EntityMetadata — needed so the system can auto-calculate monthsInPeriod and identify which statement is the full fiscal year
+- Additional UserRole levels beyond admin/analyst/viewer (structure supports it, just not enumerated yet)
+- Additional entity/period metadata fields (documented separately, just more fields on existing interfaces)
+- Reclassification rules document — Jay to write, covering permitted section moves and exceptions (e.g., intangible assets can become negative equity)
+
+### Next Steps (Phase 1 Completion):
+1. **Refactor App.tsx** to use the `spread.types.ts` data model — replace flat state with Entity → Statement → Values hierarchy
+2. **Create mock data** that populates the new Entity/Group structures
+3. **Wire entity tab switching** so clicking a different entity tab loads that entity's data into the grid
+4. **Add `fiscalYearEndMonth`** to EntityMetadata
+
+### Development Workflow Established:
+- **Claude (claude.ai):** Architecture, planning, type definitions, Cursor-ready code instructions
+- **Cursor (Pro, Sonnet engine):** Applies code changes to the actual codebase
+- **Git branch:** All work on `feature/architecture-expansion`, `main` preserved as stable baseline
+- **Commenting standard:** Enforced via `.cursorrules` — file headers, interface docs, business logic explanations
+
+---
+
+*Architecture Document v4.0 + Session Update — J-Spread*
