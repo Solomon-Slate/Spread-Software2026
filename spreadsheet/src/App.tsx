@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import AppHeader from './components/AppHeader';
+import EntityTabBar, { EntityTab } from './components/EntityTabBar';
+import StatementTabBar, { StatementType } from './components/StatementTabBar';
 import { FinancialGrid } from './components/FinancialGrid';
-import { mockRows, allPeriods, createMockValues } from './data/mockData';
+import { mockRows, allPeriods, createMockValues, incomeStatementRows, createMockISValues } from './data/mockData';
 import { NegativeDisplayFormat, DisplayScale, DateDisplayFormat, CellChange, CellHighlight, PeriodDefinition, RowDefinition, makeValueKey } from './types/grid.types';
 import './App.css';
 
@@ -11,6 +14,8 @@ function App() {
   const [dateFormat, setDateFormat] = useState<DateDisplayFormat>('MM/DD/YYYY');
   const [periods, setPeriods] = useState<PeriodDefinition[]>(allPeriods);
   const [rows, setRows] = useState<RowDefinition[]>([...mockRows]);
+  const [isValues, setISValues] = useState(() => createMockISValues());
+  const [isRows, setISRows] = useState<RowDefinition[]>([...incomeStatementRows]);
   const [hiddenPeriods, setHiddenPeriods] = useState<Set<string>>(new Set());
   const [highlights, setHighlights] = useState<Map<string, CellHighlight>>(new Map());
   const [comments, setComments] = useState<Map<string, string>>(new Map());
@@ -18,12 +23,27 @@ function App() {
   const [nextVariantId, setNextVariantId] = useState(1);
   const [companyName] = useState('Acme Manufacturing, Inc.');
 
+  const [activeEntityId, setActiveEntityId] = useState('entity_1');
+  const [isCombinedActive, setIsCombinedActive] = useState(false);
+  const [activeStatement, setActiveStatement] = useState<StatementType>('BS');
+
+  const mockEntities: EntityTab[] = [
+    { entityId: 'entity_1', name: 'Acme Manufacturing' },
+    { entityId: 'entity_2', name: 'Acme Properties LLC' },
+  ];
+
+  const activeRows = activeStatement === 'BS' ? rows : isRows;
+  const activeValues = activeStatement === 'BS' ? values : isValues;
+  const activeSetValues = activeStatement === 'BS' ? setValues : setISValues;
+  const activeSetRows = activeStatement === 'BS' ? setRows : setISRows;
+
   const visiblePeriods = useMemo(() => {
     return periods.filter(p => !hiddenPeriods.has(p.periodId));
   }, [periods, hiddenPeriods]);
 
   const handleChange = useCallback((changes: CellChange[]) => {
-    setValues(prev => {
+    const setter = activeStatement === 'BS' ? setValues : setISValues;
+    setter(prev => {
       const newValues = new Map(prev);
       for (const change of changes) {
         const key = `${change.lineItemCode}|${change.periodId}`;
@@ -35,7 +55,7 @@ function App() {
       }
       return newValues;
     });
-  }, []);
+  }, [activeStatement]);
 
   const handleHighlightChange = useCallback((key: string, highlight: CellHighlight | null) => {
     setHighlights(prev => {
@@ -232,9 +252,20 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>J-Spread</h1>
-      </header>
+      <AppHeader />
+      <EntityTabBar
+        entities={mockEntities}
+        activeEntityId={activeEntityId}
+        showCombined={mockEntities.length > 1}
+        isCombinedActive={isCombinedActive}
+        onSelectEntity={(id) => { setActiveEntityId(id); setIsCombinedActive(false); }}
+        onSelectCombined={() => setIsCombinedActive(true)}
+      />
+      <StatementTabBar
+        activeStatement={activeStatement}
+        onSelectStatement={setActiveStatement}
+        cashFlowAvailable={false}
+      />
 
       <div className="toolbar">
         <div className="toolbar-section">
@@ -320,9 +351,9 @@ function App() {
 
       <main className="grid-container">
         <FinancialGrid
-          rows={rows}
+          rows={activeRows}
           periods={visiblePeriods}
-          values={values}
+          values={activeValues}
           highlights={highlights}
           companyName={companyName}
           onChange={handleChange}
