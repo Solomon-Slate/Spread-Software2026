@@ -1,88 +1,150 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import AppHeader from './components/AppHeader';
-import EntityTabBar, { EntityTab } from './components/EntityTabBar';
-import StatementTabBar, { StatementType } from './components/StatementTabBar';
+import EntityTabBar from './components/EntityTabBar';
+import StatementTabBar from './components/StatementTabBar';
 import { FinancialGrid } from './components/FinancialGrid';
-import { mockRows, allPeriods, createMockValues, incomeStatementRows, createMockISValues } from './data/mockData';
-import { NegativeDisplayFormat, DisplayScale, DateDisplayFormat, CellChange, CellHighlight, PeriodDefinition, RowDefinition, makeValueKey } from './types/grid.types';
+import {
+  Entity,
+  StatementType,
+  StatementData,
+  DisplaySettings,
+  UserSession,
+  Group,
+  CellChange,
+  CellHighlight,
+  PeriodDefinition,
+  RowDefinition,
+  NegativeDisplayFormat,
+  DisplayScale,
+  DateDisplayFormat,
+  makeValueKey,
+} from './types/spread.types';
+
+import {
+  mockEntities,
+  mockGroup,
+  mockDisplaySettings,
+  mockCurrentUser,
+} from './data/mockSpreadData';
 import './App.css';
 
 function App() {
-  const [values, setValues] = useState(() => createMockValues());
-  const [negativeFormat, setNegativeFormat] = useState<NegativeDisplayFormat>('parentheses');
-  const [displayScale, setDisplayScale] = useState<DisplayScale>('units');
-  const [dateFormat, setDateFormat] = useState<DateDisplayFormat>('MM/DD/YYYY');
-  const [periods, setPeriods] = useState<PeriodDefinition[]>(allPeriods);
-  const [rows, setRows] = useState<RowDefinition[]>([...mockRows]);
-  const [isValues, setISValues] = useState(() => createMockISValues());
-  const [isRows, setISRows] = useState<RowDefinition[]>([...incomeStatementRows]);
+  // === Core data state ===
+  const [entities, setEntities] = useState<Map<string, Entity>>(() => new Map(mockEntities));
+  const [activeGroup] = useState<Group>(mockGroup);
+  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(mockDisplaySettings);
+  const [currentUser] = useState<UserSession>(mockCurrentUser);
+
+  // === Navigation state ===
+  const [activeEntityId, setActiveEntityId] = useState<string>('entity_acme');
+  const [activeStatement, setActiveStatement] = useState<StatementType>('BS');
+  const [isCombinedActive, setIsCombinedActive] = useState(false);
+
+  // === UI-only state ===
   const [hiddenPeriods, setHiddenPeriods] = useState<Set<string>>(new Set());
-  const [highlights, setHighlights] = useState<Map<string, CellHighlight>>(new Map());
-  const [comments, setComments] = useState<Map<string, string>>(new Map());
   const [nextCustomId, setNextCustomId] = useState(1);
   const [nextVariantId, setNextVariantId] = useState(1);
-  const [companyName] = useState('Acme Manufacturing, Inc.');
 
-  const [activeEntityId, setActiveEntityId] = useState('entity_1');
-  const [isCombinedActive, setIsCombinedActive] = useState(false);
-  const [activeStatement, setActiveStatement] = useState<StatementType>('BS');
+  // === Derived from state ===
+  const activeEntity = entities.get(activeEntityId)!;
+  const activeStatementData = activeEntity.statements[activeStatement];
+  const activePeriods = activeEntity.periods;
+  const activeRows = activeStatementData.rows;
+  const activeValues = activeStatementData.values;
+  const activeHighlights = activeStatementData.highlights;
+  const activeComments = activeStatementData.comments;
+  const companyName = activeEntity.metadata.borrowerName;
 
-  const mockEntities: EntityTab[] = [
-    { entityId: 'entity_1', name: 'Acme Manufacturing' },
-    { entityId: 'entity_2', name: 'Acme Properties LLC' },
-  ];
-
-  const activeRows = activeStatement === 'BS' ? rows : isRows;
-  const activeValues = activeStatement === 'BS' ? values : isValues;
-  const activeSetValues = activeStatement === 'BS' ? setValues : setISValues;
-  const activeSetRows = activeStatement === 'BS' ? setRows : setISRows;
+  const entitiesListForTabs = useMemo(
+    () =>
+      activeGroup.entityIds.map(entityId => ({
+        entityId,
+        name: entities.get(entityId)?.metadata.borrowerName ?? entityId,
+      })),
+    [activeGroup, entities]
+  );
 
   const visiblePeriods = useMemo(() => {
-    return periods.filter(p => !hiddenPeriods.has(p.periodId));
-  }, [periods, hiddenPeriods]);
+    return activePeriods.filter(p => !hiddenPeriods.has(p.periodId));
+  }, [activePeriods, hiddenPeriods]);
+
+  /** Helper: update a specific statement's data within the entities Map */
+  const updateStatementData = useCallback((
+    entityId: string,
+    stmtType: StatementType,
+    updater: (stmt: StatementData) => StatementData
+  ) => {
+    setEntities(prev => {
+      const next = new Map(prev);
+      const entity = next.get(entityId);
+      if (!entity) return prev;
+      const updatedEntity: Entity = {
+        ...entity,
+        statements: {
+          ...entity.statements,
+          [stmtType]: updater({ ...entity.statements[stmtType] }),
+        },
+      };
+      next.set(entityId, updatedEntity);
+      return next;
+    });
+  }, []);
+
+  /** Helper: update the active entity's periods array */
+  const updateActivePeriods = useCallback((
+    updater: (periods: PeriodDefinition[]) => PeriodDefinition[]
+  ) => {
+    setEntities(prev => {
+      const next = new Map(prev);
+      const entity = next.get(activeEntityId);
+      if (!entity) return prev;
+      next.set(activeEntityId, {
+        ...entity,
+        periods: updater([...entity.periods]),
+      });
+      return next;
+    });
+  }, [activeEntityId]);
 
   const handleChange = useCallback((changes: CellChange[]) => {
-    const setter = activeStatement === 'BS' ? setValues : setISValues;
-    setter(prev => {
-      const newValues = new Map(prev);
+    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+      const newValues = new Map(stmt.values);
       for (const change of changes) {
-        const key = `${change.lineItemCode}|${change.periodId}`;
+        const key = makeValueKey(change.lineItemCode, change.periodId);
         if (change.newValue === null) {
           newValues.delete(key);
         } else {
           newValues.set(key, change.newValue);
         }
       }
-      return newValues;
+      return { ...stmt, values: newValues };
     });
-  }, [activeStatement]);
-
+  }, [activeEntityId, activeStatement, updateStatementData]);
   const handleHighlightChange = useCallback((key: string, highlight: CellHighlight | null) => {
-    setHighlights(prev => {
-      const next = new Map(prev);
+    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+      const newHighlights = new Map(stmt.highlights);
       if (highlight === null) {
-        next.delete(key);
+        newHighlights.delete(key);
       } else {
-        next.set(key, highlight);
+        newHighlights.set(key, highlight);
       }
-      return next;
+      return { ...stmt, highlights: newHighlights };
     });
-  }, []);
+  }, [activeEntityId, activeStatement, updateStatementData]);
   const handleCommentChange = useCallback((key: string, comment: string | null) => {
-    setComments(prev => {
-      const next = new Map(prev);
+    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+      const newComments = new Map(stmt.comments);
       if (comment === null) {
-        next.delete(key);
+        newComments.delete(key);
       } else {
-        next.set(key, comment);
+        newComments.set(key, comment);
       }
-      return next;
+      return { ...stmt, comments: newComments };
     });
-  }, []);
-
+  }, [activeEntityId, activeStatement, updateStatementData]);
   const addPeriod = useCallback(() => {
-    setPeriods(prev => {
-      const lastPeriod = prev[prev.length - 1];
+    updateActivePeriods((periods) => {
+      const lastPeriod = periods[periods.length - 1];
       const lastDate = new Date(lastPeriod.periodEnd);
       const newYear = lastDate.getFullYear() + 1;
       const newDateStr = `${newYear}-12-31`;
@@ -92,57 +154,67 @@ function App() {
         periodType: 'Y',
         isActive: true,
         isIncluded: true,
+        metadata: {
+          analystName: currentUser.userName,
+          statementDate: newDateStr,
+          statementQuality: 'companyPrepared',
+          monthsInPeriod: 12,
+          notes: '',
+        },
       };
-      return [...prev, newPeriod];
+      return [...periods, newPeriod];
     });
-  }, []);
-
+  }, [updateActivePeriods, currentUser.userName]);
   const removePeriod = useCallback(() => {
-    setPeriods(prev => {
-      if (prev.length <= 1) return prev;
-      return prev.slice(0, -1);
+    updateActivePeriods((periods) => {
+      if (periods.length <= 1) return periods;
+      return periods.slice(0, -1);
     });
-  }, []);
-
+  }, [updateActivePeriods]);
   const handleDeletePeriod = useCallback((periodId: string) => {
-    setPeriods(prev => {
-      if (prev.length <= 1) return prev;
-      return prev.filter(p => p.periodId !== periodId);
-    });
-    setValues(prev => {
-      const newValues = new Map(prev);
-      for (const key of Array.from(newValues.keys())) {
-        if (key.endsWith(`|${periodId}`)) {
-          newValues.delete(key);
+    setEntities(prev => {
+      const next = new Map(prev);
+      const entity = next.get(activeEntityId);
+      if (!entity) return prev;
+      if (entity.periods.length <= 1) return prev;
+      const newPeriods = entity.periods.filter(p => p.periodId !== periodId);
+      const newStatements = { ...entity.statements };
+      for (const stmtType of ['BS', 'IS', 'CF'] as StatementType[]) {
+        const stmt = newStatements[stmtType];
+        const newValues = new Map(stmt.values);
+        for (const key of Array.from(newValues.keys())) {
+          if (key.endsWith(`|${periodId}`)) {
+            newValues.delete(key);
+          }
         }
+        newStatements[stmtType] = { ...stmt, values: newValues };
       }
-      return newValues;
+      next.set(activeEntityId, { ...entity, periods: newPeriods, statements: newStatements });
+      return next;
     });
-  }, []);
-
+  }, [activeEntityId]);
   const handleClearPeriod = useCallback((periodId: string) => {
-    setValues(prev => {
-      const newValues = new Map(prev);
+    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+      const newValues = new Map(stmt.values);
       for (const key of Array.from(newValues.keys())) {
         if (key.endsWith(`|${periodId}`)) {
           newValues.delete(key);
         }
       }
-      return newValues;
+      return { ...stmt, values: newValues };
     });
-  }, []);
-
+  }, [activeEntityId, activeStatement, updateStatementData]);
   const handleInsertColumn = useCallback((atColIndex: number, position: 'left' | 'right', mode: 'clone' | 'blank') => {
-    const sourcePeriod = periods[atColIndex];
+    const entity = entities.get(activeEntityId);
+    if (!entity) return;
+    const sourcePeriod = entity.periods[atColIndex];
     const variantLabel = window.prompt(
       'Enter a label for this version (e.g., "CPA Reviewed", "Pro Forma", "What-If"):',
       mode === 'clone' ? 'Copy' : 'New'
     );
     if (!variantLabel || variantLabel.trim() === '') return;
-
     const newPeriodId = `${sourcePeriod.periodEnd}_var${nextVariantId}`;
     setNextVariantId(prev => prev + 1);
-
     const newPeriod: PeriodDefinition = {
       periodId: newPeriodId,
       periodEnd: sourcePeriod.periodEnd,
@@ -150,41 +222,48 @@ function App() {
       variant: variantLabel.trim(),
       isActive: false,
       isIncluded: true,
+      metadata: {
+        ...sourcePeriod.metadata,
+        analystName: currentUser.userName,
+        notes: '',
+      },
     };
-
-    setPeriods(prev => {
-      const newPeriods = [...prev];
+    setEntities(prev => {
+      const next = new Map(prev);
+      const ent = next.get(activeEntityId);
+      if (!ent) return prev;
+      const newPeriods = [...ent.periods];
       const insertAt = position === 'left' ? atColIndex : atColIndex + 1;
       newPeriods.splice(insertAt, 0, newPeriod);
-      return newPeriods;
+      let newStatements = { ...ent.statements };
+      if (mode === 'clone') {
+        for (const stmtType of ['BS', 'IS'] as StatementType[]) {
+          const stmt = ent.statements[stmtType];
+          const newValues = new Map(stmt.values);
+          stmt.rows.forEach(row => {
+            const sourceKey = makeValueKey(row.lineItemCode, sourcePeriod.periodId);
+            const sourceVal = stmt.values.get(sourceKey);
+            if (sourceVal !== undefined) {
+              newValues.set(makeValueKey(row.lineItemCode, newPeriodId), sourceVal);
+            }
+          });
+          newStatements[stmtType] = { ...stmt, values: newValues };
+        }
+      }
+      next.set(activeEntityId, { ...ent, periods: newPeriods, statements: newStatements });
+      return next;
     });
-
-    if (mode === 'clone') {
-      setValues(prev => {
-        const newValues = new Map(prev);
-        rows.forEach(row => {
-          const sourceKey = makeValueKey(row.lineItemCode, sourcePeriod.periodId);
-          const sourceVal = prev.get(sourceKey);
-          if (sourceVal !== undefined) {
-            const newKey = makeValueKey(row.lineItemCode, newPeriodId);
-            newValues.set(newKey, sourceVal);
-          }
-        });
-        return newValues;
-      });
-    }
-  }, [periods, rows, nextVariantId]);
-
+  }, [activeEntityId, entities, nextVariantId, currentUser.userName]);
   const handleToggleActive = useCallback((periodId: string) => {
-    setPeriods(prev => {
-      const targetPeriod = prev.find(p => p.periodId === periodId);
-      if (!targetPeriod) return prev;
-      const siblings = prev.filter(p => p.periodEnd === targetPeriod.periodEnd);
+    updateActivePeriods((periods) => {
+      const targetPeriod = periods.find(p => p.periodId === periodId);
+      if (!targetPeriod) return periods;
+      const siblings = periods.filter(p => p.periodEnd === targetPeriod.periodEnd);
       if (targetPeriod.isActive && siblings.length === 1) {
         window.alert('Cannot deactivate the only version of this period.');
-        return prev;
+        return periods;
       }
-      return prev.map(p => {
+      return periods.map(p => {
         if (p.periodEnd === targetPeriod.periodEnd) {
           if (!targetPeriod.isActive) {
             return { ...p, isActive: p.periodId === periodId };
@@ -196,12 +275,10 @@ function App() {
         return p;
       });
     });
-  }, []);
-
+  }, [updateActivePeriods]);
   const handleInsertRow = useCallback((atIndex: number, position: 'above' | 'below') => {
     const label = window.prompt('Enter account name:');
     if (!label || label.trim() === '') return;
-
     const newRow: RowDefinition = {
       lineItemCode: `Custom.UserDefined.${nextCustomId}`,
       label: label.trim(),
@@ -209,54 +286,47 @@ function App() {
       indentLevel: 1,
       isEditable: true,
     };
-
     setNextCustomId(prev => prev + 1);
-
-    setRows(prev => {
-      const newRows = [...prev];
+    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+      const newRows = [...stmt.rows];
       const insertAt = position === 'above' ? atIndex : atIndex + 1;
       newRows.splice(insertAt, 0, newRow);
-      return newRows;
+      return { ...stmt, rows: newRows };
     });
-  }, [nextCustomId]);
-
+  }, [activeEntityId, activeStatement, nextCustomId, updateStatementData]);
   const handleDeleteRow = useCallback((atIndex: number) => {
-    setRows(prev => {
-      const row = prev[atIndex];
-      setValues(prevValues => {
-        const newValues = new Map(prevValues);
-        for (const key of Array.from(newValues.keys())) {
-          if (key.startsWith(`${row.lineItemCode}|`)) {
-            newValues.delete(key);
-          }
+    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+      const row = stmt.rows[atIndex];
+      const newValues = new Map(stmt.values);
+      for (const key of Array.from(newValues.keys())) {
+        if (key.startsWith(`${row.lineItemCode}|`)) {
+          newValues.delete(key);
         }
-        return newValues;
-      });
-      const newRows = [...prev];
+      }
+      const newRows = [...stmt.rows];
       newRows.splice(atIndex, 1);
-      return newRows;
+      return { ...stmt, rows: newRows, values: newValues };
     });
-  }, []);
-
+  }, [activeEntityId, activeStatement, updateStatementData]);
   const handleMoveRow = useCallback((fromIndex: number, direction: 'up' | 'down') => {
-    setRows(prev => {
+    updateStatementData(activeEntityId, activeStatement, (stmt) => {
       const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-      if (toIndex < 0 || toIndex >= prev.length) return prev;
-      const newRows = [...prev];
+      if (toIndex < 0 || toIndex >= stmt.rows.length) return stmt;
+      const newRows = [...stmt.rows];
       const temp = newRows[fromIndex];
       newRows[fromIndex] = newRows[toIndex];
       newRows[toIndex] = temp;
-      return newRows;
+      return { ...stmt, rows: newRows };
     });
-  }, []);
+  }, [activeEntityId, activeStatement, updateStatementData]);
 
   return (
     <div className="app">
       <AppHeader />
       <EntityTabBar
-        entities={mockEntities}
+        entities={entitiesListForTabs}
         activeEntityId={activeEntityId}
-        showCombined={mockEntities.length > 1}
+        showCombined={entitiesListForTabs.length > 1}
         isCombinedActive={isCombinedActive}
         onSelectEntity={(id) => { setActiveEntityId(id); setIsCombinedActive(false); }}
         onSelectCombined={() => setIsCombinedActive(true)}
@@ -274,12 +344,12 @@ function App() {
             <button 
               className="period-btn remove" 
               onClick={removePeriod}
-              disabled={periods.length <= 1}
+              disabled={activePeriods.length <= 1}
               title="Remove last period"
             >
               −
             </button>
-            <span className="period-count">{periods.length} periods</span>
+            <span className="period-count">{activePeriods.length} periods</span>
             <button 
               className="period-btn add" 
               onClick={addPeriod}
@@ -289,7 +359,7 @@ function App() {
             </button>
           </div>
           <div className="period-list">
-            {periods.map(p => (
+            {activePeriods.map(p => (
               <span 
                 key={p.periodId} 
                 className={`period-tag ${hiddenPeriods.has(p.periodId) ? 'hidden' : ''}`}
@@ -315,8 +385,8 @@ function App() {
         <div className="toolbar-section">
           <label>Date Format:</label>
           <select
-            value={dateFormat}
-            onChange={e => setDateFormat(e.target.value as DateDisplayFormat)}
+            value={displaySettings.dateFormat}
+            onChange={e => setDisplaySettings(prev => ({ ...prev, dateFormat: e.target.value as DateDisplayFormat }))}
           >
             <option value="MM/DD/YYYY">12/31/2022</option>
             <option value="MM/DD/YY">12/31/22</option>
@@ -327,8 +397,8 @@ function App() {
         <div className="toolbar-section">
           <label>Negatives:</label>
           <select
-            value={negativeFormat}
-            onChange={e => setNegativeFormat(e.target.value as NegativeDisplayFormat)}
+            value={displaySettings.negativeFormat}
+            onChange={e => setDisplaySettings(prev => ({ ...prev, negativeFormat: e.target.value as NegativeDisplayFormat }))}
           >
             <option value="parentheses">(1,093)</option>
             <option value="minus">-1,093</option>
@@ -338,8 +408,8 @@ function App() {
         <div className="toolbar-section">
           <label>Scale:</label>
           <select
-            value={displayScale}
-            onChange={e => setDisplayScale(e.target.value as DisplayScale)}
+            value={displaySettings.displayScale}
+            onChange={e => setDisplaySettings(prev => ({ ...prev, displayScale: e.target.value as DisplayScale }))}
           >
             <option value="decimal">Decimal</option>
             <option value="units">Units</option>
@@ -354,11 +424,11 @@ function App() {
           rows={activeRows}
           periods={visiblePeriods}
           values={activeValues}
-          highlights={highlights}
+          highlights={activeHighlights}
           companyName={companyName}
           onChange={handleChange}
           onHighlightChange={handleHighlightChange}
-          comments={comments}
+          comments={activeComments}
           onCommentChange={handleCommentChange}
           onDeletePeriod={handleDeletePeriod}
           onClearPeriod={handleClearPeriod}
@@ -367,10 +437,10 @@ function App() {
           onInsertRow={handleInsertRow}
           onDeleteRow={handleDeleteRow}
           onMoveRow={handleMoveRow}
-          negativeFormat={negativeFormat}
-          displayScale={displayScale}
-          dateFormat={dateFormat}
-          decimalPlaces={displayScale === 'decimal' ? 2 : 0}
+          negativeFormat={displaySettings.negativeFormat}
+          displayScale={displaySettings.displayScale}
+          dateFormat={displaySettings.dateFormat}
+          decimalPlaces={displaySettings.displayScale === 'decimal' ? 2 : 0}
         />
       </main>
     </div>
