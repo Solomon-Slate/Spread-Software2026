@@ -14,17 +14,13 @@
 
 import {
     Entity,
-    EntityMetadata,
     PeriodDefinition,
     RowDefinition,
     StatementData,
-    StatementType,
     Group,
-    CombineConfig,
     DisplaySettings,
     UserSession,
     AppState,
-    CellHighlight,
     makeValueKey,
   } from '../types/spread.types';
   

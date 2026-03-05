@@ -57,6 +57,7 @@ export interface GridProps {
     onToggleActive?: (periodId: string) => void;
     onInsertRow?: (atIndex: number, position: 'above' | 'below') => void;
     onDeleteRow?: (atIndex: number) => void;
+    onClearRow?: (rowIndex: number) => void;
     onMoveRow?: (fromIndex: number, direction: 'up' | 'down') => void;
     negativeFormat?: NegativeDisplayFormat;
     displayScale?: DisplayScale;

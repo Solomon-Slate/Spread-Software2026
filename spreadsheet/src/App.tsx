@@ -19,6 +19,7 @@ import {
   DateDisplayFormat,
   makeValueKey,
 } from './types/spread.types';
+import type { ViewTab } from './types/ui.types';
 
 import {
   mockEntities,
@@ -37,8 +38,14 @@ function App() {
 
   // === Navigation state ===
   const [activeEntityId, setActiveEntityId] = useState<string>('entity_acme');
-  const [activeStatement, setActiveStatement] = useState<StatementType>('BS');
+  const [activeStatement, setActiveStatement] = useState<ViewTab>('BS');
   const [isCombinedActive, setIsCombinedActive] = useState(false);
+
+  // When the selected tab is a statement (BS/IS/CF), use it for data; otherwise use BS for grid data
+  const activeStatementType: StatementType =
+    activeStatement === 'BS' || activeStatement === 'IS' || activeStatement === 'CF'
+      ? activeStatement
+      : 'BS';
 
   // === UI-only state ===
   const [hiddenPeriods, setHiddenPeriods] = useState<Set<string>>(new Set());
@@ -47,7 +54,7 @@ function App() {
 
   // === Derived from state ===
   const activeEntity = entities.get(activeEntityId)!;
-  const activeStatementData = activeEntity.statements[activeStatement];
+  const activeStatementData = activeEntity.statements[activeStatementType];
   const activePeriods = activeEntity.periods;
   const activeRows = activeStatementData.rows;
   const activeValues = activeStatementData.values;
@@ -107,7 +114,7 @@ function App() {
   }, [activeEntityId]);
 
   const handleChange = useCallback((changes: CellChange[]) => {
-    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
       const newValues = new Map(stmt.values);
       for (const change of changes) {
         const key = makeValueKey(change.lineItemCode, change.periodId);
@@ -119,9 +126,9 @@ function App() {
       }
       return { ...stmt, values: newValues };
     });
-  }, [activeEntityId, activeStatement, updateStatementData]);
+  }, [activeEntityId, activeStatementType, updateStatementData]);
   const handleHighlightChange = useCallback((key: string, highlight: CellHighlight | null) => {
-    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
       const newHighlights = new Map(stmt.highlights);
       if (highlight === null) {
         newHighlights.delete(key);
@@ -130,9 +137,9 @@ function App() {
       }
       return { ...stmt, highlights: newHighlights };
     });
-  }, [activeEntityId, activeStatement, updateStatementData]);
+  }, [activeEntityId, activeStatementType, updateStatementData]);
   const handleCommentChange = useCallback((key: string, comment: string | null) => {
-    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
       const newComments = new Map(stmt.comments);
       if (comment === null) {
         newComments.delete(key);
@@ -141,7 +148,7 @@ function App() {
       }
       return { ...stmt, comments: newComments };
     });
-  }, [activeEntityId, activeStatement, updateStatementData]);
+  }, [activeEntityId, activeStatementType, updateStatementData]);
   const addPeriod = useCallback(() => {
     updateActivePeriods((periods) => {
       const lastPeriod = periods[periods.length - 1];
@@ -194,7 +201,7 @@ function App() {
     });
   }, [activeEntityId]);
   const handleClearPeriod = useCallback((periodId: string) => {
-    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
       const newValues = new Map(stmt.values);
       for (const key of Array.from(newValues.keys())) {
         if (key.endsWith(`|${periodId}`)) {
@@ -203,7 +210,7 @@ function App() {
       }
       return { ...stmt, values: newValues };
     });
-  }, [activeEntityId, activeStatement, updateStatementData]);
+  }, [activeEntityId, activeStatementType, updateStatementData]);
   const handleInsertColumn = useCallback((atColIndex: number, position: 'left' | 'right', mode: 'clone' | 'blank') => {
     const entity = entities.get(activeEntityId);
     if (!entity) return;
@@ -287,15 +294,15 @@ function App() {
       isEditable: true,
     };
     setNextCustomId(prev => prev + 1);
-    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
       const newRows = [...stmt.rows];
       const insertAt = position === 'above' ? atIndex : atIndex + 1;
       newRows.splice(insertAt, 0, newRow);
       return { ...stmt, rows: newRows };
     });
-  }, [activeEntityId, activeStatement, nextCustomId, updateStatementData]);
+  }, [activeEntityId, activeStatementType, nextCustomId, updateStatementData]);
   const handleDeleteRow = useCallback((atIndex: number) => {
-    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
       const row = stmt.rows[atIndex];
       const newValues = new Map(stmt.values);
       for (const key of Array.from(newValues.keys())) {
@@ -307,9 +314,9 @@ function App() {
       newRows.splice(atIndex, 1);
       return { ...stmt, rows: newRows, values: newValues };
     });
-  }, [activeEntityId, activeStatement, updateStatementData]);
+  }, [activeEntityId, activeStatementType, updateStatementData]);
   const handleMoveRow = useCallback((fromIndex: number, direction: 'up' | 'down') => {
-    updateStatementData(activeEntityId, activeStatement, (stmt) => {
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
       const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
       if (toIndex < 0 || toIndex >= stmt.rows.length) return stmt;
       const newRows = [...stmt.rows];
@@ -318,7 +325,22 @@ function App() {
       newRows[toIndex] = temp;
       return { ...stmt, rows: newRows };
     });
-  }, [activeEntityId, activeStatement, updateStatementData]);
+  }, [activeEntityId, activeStatementType, updateStatementData]);
+
+  const handleClearRow = useCallback((rowIndex: number) => {
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
+      const row = stmt.rows[rowIndex];
+      if (!row) return stmt;
+      const lineItemCode = row.lineItemCode;
+      const newValues = new Map(stmt.values);
+      for (const key of Array.from(newValues.keys())) {
+        if (key.startsWith(`${lineItemCode}|`)) {
+          newValues.delete(key);
+        }
+      }
+      return { ...stmt, values: newValues };
+    });
+  }, [activeEntityId, activeStatementType, updateStatementData]);
 
   return (
     <div className="app">
@@ -436,6 +458,7 @@ function App() {
           onToggleActive={handleToggleActive}
           onInsertRow={handleInsertRow}
           onDeleteRow={handleDeleteRow}
+          onClearRow={handleClearRow}
           onMoveRow={handleMoveRow}
           negativeFormat={displaySettings.negativeFormat}
           displayScale={displaySettings.displayScale}

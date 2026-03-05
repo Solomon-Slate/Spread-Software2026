@@ -7,7 +7,7 @@ interface UseGridNavigationProps {
   focusedCell: CellPosition | null;
   editingCell: CellPosition | null;
   onFocusChange: (position: CellPosition | null) => void;
-  onStartEdit: (position: CellPosition) => void;
+  onStartEdit: (position: CellPosition, mode: 'edit' | 'replace') => void;
   onCancelEdit: () => void;
   onCommitEdit: () => void;
 }
@@ -132,12 +132,12 @@ export function useGridNavigation({
       }
       case 'F2': {
         e.preventDefault();
-        if (rows[focusedCell.rowIndex].isEditable) onStartEdit(focusedCell);
+        if (rows[focusedCell.rowIndex].isEditable) onStartEdit(focusedCell, 'edit');
         break;
       }
       default: {
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-          if (rows[focusedCell.rowIndex].isEditable) onStartEdit(focusedCell);
+          if (rows[focusedCell.rowIndex].isEditable) onStartEdit(focusedCell, 'replace');
         }
         break;
       }

@@ -42,15 +42,17 @@ export const FinancialGrid: React.FC<GridProps> = ({
   onInsertRow,
   onDeleteRow,
   onMoveRow,
+  onClearRow,
   negativeFormat = 'parentheses',
   displayScale = 'units',
   dateFormat = 'MM/DD/YYYY',
   decimalPlaces = 0,
 }) => {
-  const [state, setState] = useState<GridState>({
+  const [state, setState] = useState<GridState & { editMode: 'edit' | 'replace' }>({
     focusedCell: null,
     editingCell: null,
     editValue: '',
+    editMode: 'edit',
   });
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
@@ -96,10 +98,11 @@ export const FinancialGrid: React.FC<GridProps> = ({
       focusedCell: position,
       editingCell: null,
       editValue: '',
+      editMode: 'edit',
     }));
   }, []);
 
-  const handleStartEdit = useCallback((position: CellPosition) => {
+  const handleStartEdit = useCallback((position: CellPosition, mode: 'edit' | 'replace' = 'edit') => {
     const row = rows[position.rowIndex];
     const period = periods[position.colIndex];
     const key = makeValueKey(row.lineItemCode, period.periodId);
@@ -109,16 +112,17 @@ export const FinancialGrid: React.FC<GridProps> = ({
       ...prev,
       focusedCell: position,
       editingCell: position,
-      editValue: formatForEditing(value),
+      editValue: mode === 'replace' ? '' : formatForEditing(value),
+      editMode: mode,
     }));
   }, [rows, periods, values]);
 
   const handleCancelEdit = useCallback(() => {
-    setState(prev => ({ ...prev, editingCell: null, editValue: '' }));
+    setState(prev => ({ ...prev, editingCell: null, editValue: '', editMode: 'edit' }));
   }, []);
 
   const handleCommitEdit = useCallback(() => {
-    setState(prev => ({ ...prev, editingCell: null, editValue: '' }));
+    setState(prev => ({ ...prev, editingCell: null, editValue: '', editMode: 'edit' }));
   }, []);
 
   const { handleKeyDown, gridRef, getCellRef } = useGridNavigation({
@@ -156,7 +160,7 @@ export const FinancialGrid: React.FC<GridProps> = ({
       onChange([change]);
     }
 
-    setState(prev => ({ ...prev, editingCell: null, editValue: '' }));
+    setState(prev => ({ ...prev, editingCell: null, editValue: '', editMode: 'edit' }));
   }, [rows, periods, values, onChange]);
 
   const handleRowContextMenu = useCallback((e: React.MouseEvent, rowIndex: number) => {
@@ -226,6 +230,15 @@ export const FinancialGrid: React.FC<GridProps> = ({
       },
       { label: '', onClick: () => {}, separator: true },
       {
+        label: 'Clear Row Values',
+        onClick: () => {
+          if (window.confirm(`Clear all values for "${row.label}"?`)) {
+            onClearRow?.(rowIndex);
+          }
+        },
+        disabled: !isDataRow,
+      },
+      {
         label: 'Delete Row',
         onClick: () => {
           if (window.confirm(`Delete "${row.label}"?`)) {
@@ -235,7 +248,7 @@ export const FinancialGrid: React.FC<GridProps> = ({
         disabled: !isDataRow,
       },
     ];
-  }, [rows, onInsertRow, onDeleteRow, onMoveRow]);
+  }, [rows, onInsertRow, onDeleteRow, onMoveRow, onClearRow]);
 
   const getColumnContextMenuActions = useCallback((colIndex: number): ContextMenuAction[] => {
     const period = periods[colIndex];
@@ -522,12 +535,13 @@ export const FinancialGrid: React.FC<GridProps> = ({
                       isFocused={isCellFocused(rowIndex, colIndex)}
                       isEditing={isCellEditing(rowIndex, colIndex)}
                       editValue={state.editValue}
+                      editMode={state.editMode}
                       negativeFormat={negativeFormat}
                       displayScale={displayScale}
                       decimalPlaces={decimalPlaces}
                       highlight={highlights.get(key) || null}
                       onFocus={() => handleFocusChange({ rowIndex, colIndex })}
-                      onStartEdit={() => handleStartEdit({ rowIndex, colIndex })}
+                      onStartEdit={(mode: 'edit' | 'replace' = 'edit') => handleStartEdit({ rowIndex, colIndex }, mode)}
                       onEditChange={handleEditChange}
                       onCommit={(newValue) => handleCellCommit(rowIndex, colIndex, newValue)}
                       onCancel={handleCancelEdit}
