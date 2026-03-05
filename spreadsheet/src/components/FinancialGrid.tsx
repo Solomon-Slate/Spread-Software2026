@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import GridCell from './GridCell';
 import ContextMenu, { ContextMenuAction } from './ContextMenu';
 import { useGridNavigation } from '../hooks/useGridNavigation';
@@ -43,6 +43,7 @@ export const FinancialGrid: React.FC<GridProps> = ({
   onDeleteRow,
   onMoveRow,
   onClearRow,
+  onClearFormatting,
   negativeFormat = 'parentheses',
   displayScale = 'units',
   dateFormat = 'MM/DD/YYYY',
@@ -64,7 +65,7 @@ export const FinancialGrid: React.FC<GridProps> = ({
     target: 'row',
   });
 
-  
+  const clipboardRef = useRef<number | null>(null);
 
   const rowNumbers = useMemo(() => {
     const map = new Map<number, number>();
@@ -125,6 +126,27 @@ export const FinancialGrid: React.FC<GridProps> = ({
     setState(prev => ({ ...prev, editingCell: null, editValue: '', editMode: 'edit' }));
   }, []);
 
+  const handleCopy = useCallback(() => {
+    if (!state.focusedCell) return;
+    const row = rows[state.focusedCell.rowIndex];
+    const period = periods[state.focusedCell.colIndex];
+    const key = makeValueKey(row.lineItemCode, period.periodId);
+    clipboardRef.current = values.get(key) ?? null;
+  }, [state.focusedCell, rows, periods, values]);
+
+  const handlePaste = useCallback(() => {
+    if (!state.focusedCell || clipboardRef.current === null) return;
+    const row = rows[state.focusedCell.rowIndex];
+    if (!row.isEditable) return;
+    const period = periods[state.focusedCell.colIndex];
+    onChange([{
+      lineItemCode: row.lineItemCode,
+      periodId: period.periodId,
+      oldValue: values.get(makeValueKey(row.lineItemCode, period.periodId)) ?? null,
+      newValue: clipboardRef.current,
+    }]);
+  }, [state.focusedCell, rows, periods, values, onChange]);
+
   const { handleKeyDown, gridRef, getCellRef } = useGridNavigation({
     rows,
     periods,
@@ -134,6 +156,8 @@ export const FinancialGrid: React.FC<GridProps> = ({
     onStartEdit: handleStartEdit,
     onCancelEdit: handleCancelEdit,
     onCommitEdit: handleCommitEdit,
+    onCopy: handleCopy,
+    onPaste: handlePaste,
   });
 
   const handleEditChange = useCallback((value: string) => {
@@ -247,8 +271,14 @@ export const FinancialGrid: React.FC<GridProps> = ({
         },
         disabled: !isDataRow,
       },
+      { label: '', onClick: () => {}, separator: true },
+      {
+        label: 'Clear All Formatting',
+        onClick: () => onClearFormatting?.(),
+        disabled: row.rowType !== 'sectionHeader',
+      },
     ];
-  }, [rows, onInsertRow, onDeleteRow, onMoveRow, onClearRow]);
+  }, [rows, onInsertRow, onDeleteRow, onMoveRow, onClearRow, onClearFormatting]);
 
   const getColumnContextMenuActions = useCallback((colIndex: number): ContextMenuAction[] => {
     const period = periods[colIndex];
@@ -365,8 +395,31 @@ export const FinancialGrid: React.FC<GridProps> = ({
         label: 'Remove Comment',
         onClick: () => onCommentChange?.(key, null),
         disabled: !comments.has(key),
-      },];
-  }, [rows, periods, highlights, onHighlightChange,comments,onCommentChange]);
+      },
+      { label: '', onClick: () => {}, separator: true },
+      {
+        label: 'Copy Value',
+        onClick: () => {
+          const val = values.get(key) ?? null;
+          clipboardRef.current = val;
+        },
+        disabled: !values.has(key),
+      },
+      {
+        label: 'Paste Value',
+        onClick: () => {
+          if (clipboardRef.current === null) return;
+          onChange([{
+            lineItemCode: row.lineItemCode,
+            periodId: period.periodId,
+            oldValue: values.get(key) ?? null,
+            newValue: clipboardRef.current,
+          }]);
+        },
+        disabled: clipboardRef.current === null || !row.isEditable,
+      },
+    ];
+  }, [rows, periods, highlights, onHighlightChange, comments, onCommentChange, values, onChange]);
 
   const gridTemplateColumns = useMemo(() => {
     const rowNumWidth = '40px';

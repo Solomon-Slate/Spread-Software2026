@@ -59,6 +59,7 @@ export interface GridProps {
     onDeleteRow?: (atIndex: number) => void;
     onClearRow?: (rowIndex: number) => void;
     onMoveRow?: (fromIndex: number, direction: 'up' | 'down') => void;
+    onClearFormatting?: () => void;
     negativeFormat?: NegativeDisplayFormat;
     displayScale?: DisplayScale;
     dateFormat?: DateDisplayFormat;

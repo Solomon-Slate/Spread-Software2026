@@ -342,6 +342,13 @@ function App() {
     });
   }, [activeEntityId, activeStatementType, updateStatementData]);
 
+  const handleClearFormatting = useCallback(() => {
+    if (!window.confirm('Clear all formatting on this statement?')) return;
+    updateStatementData(activeEntityId, activeStatementType, (stmt) => {
+      return { ...stmt, highlights: new Map() };
+    });
+  }, [activeEntityId, activeStatementType, updateStatementData]);
+
   return (
     <div className="app">
       <AppHeader />
@@ -460,6 +467,7 @@ function App() {
           onDeleteRow={handleDeleteRow}
           onClearRow={handleClearRow}
           onMoveRow={handleMoveRow}
+          onClearFormatting={handleClearFormatting}
           negativeFormat={displaySettings.negativeFormat}
           displayScale={displaySettings.displayScale}
           dateFormat={displaySettings.dateFormat}
