@@ -8,12 +8,13 @@ interface GridCellProps {
   isFocused: boolean;
   isEditing: boolean;
   editValue: string;
+  editMode?: 'edit' | 'replace';
   negativeFormat: NegativeDisplayFormat;
   displayScale: DisplayScale;
   decimalPlaces: number;
   highlight?: CellHighlight | null;
   onFocus: () => void;
-  onStartEdit: () => void;
+  onStartEdit: (mode?: 'edit' | 'replace') => void;
   onEditChange: (value: string) => void;
   onCommit: (value: number | null) => void;
   onCancel: () => void;
@@ -26,6 +27,7 @@ export const GridCell: React.FC<GridCellProps> = ({
   isFocused,
   isEditing,
   editValue,
+  editMode,
   negativeFormat,
   displayScale,
   decimalPlaces,
@@ -72,7 +74,7 @@ export const GridCell: React.FC<GridCellProps> = ({
   }, [isFocused, onFocus]);
 
   const handleDoubleClick = useCallback(() => {
-    if (isEditable && !isEditing) onStartEdit();
+    if (isEditable && !isEditing) onStartEdit('edit');
   }, [isEditable, isEditing, onStartEdit]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -95,9 +97,15 @@ export const GridCell: React.FC<GridCellProps> = ({
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
-      inputRef.current.select();
+      if (editMode === 'replace') {
+        inputRef.current.select();
+      } else {
+        const len = inputRef.current.value.length;
+        inputRef.current.selectionStart = len;
+        inputRef.current.selectionEnd = len;
+      }
     }
-  }, [isEditing]);
+  }, [isEditing, editMode]);
 
   const getCellClassName = (): string => {
     const classes = ['grid-cell'];

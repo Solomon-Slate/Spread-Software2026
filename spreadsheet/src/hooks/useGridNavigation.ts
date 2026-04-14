@@ -7,9 +7,11 @@ interface UseGridNavigationProps {
   focusedCell: CellPosition | null;
   editingCell: CellPosition | null;
   onFocusChange: (position: CellPosition | null) => void;
-  onStartEdit: (position: CellPosition) => void;
+  onStartEdit: (position: CellPosition, mode: 'edit' | 'replace') => void;
   onCancelEdit: () => void;
   onCommitEdit: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
 }
 
 export function useGridNavigation({
@@ -21,6 +23,8 @@ export function useGridNavigation({
   onStartEdit,
   onCancelEdit,
   onCommitEdit,
+  onCopy,
+  onPaste,
 }: UseGridNavigationProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -132,17 +136,31 @@ export function useGridNavigation({
       }
       case 'F2': {
         e.preventDefault();
-        if (rows[focusedCell.rowIndex].isEditable) onStartEdit(focusedCell);
+        if (rows[focusedCell.rowIndex].isEditable) onStartEdit(focusedCell, 'edit');
+        break;
+      }
+      case 'c': {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          onCopy();
+        }
+        break;
+      }
+      case 'v': {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          onPaste();
+        }
         break;
       }
       default: {
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-          if (rows[focusedCell.rowIndex].isEditable) onStartEdit(focusedCell);
+          if (rows[focusedCell.rowIndex].isEditable) onStartEdit(focusedCell, 'replace');
         }
         break;
       }
     }
-  }, [focusedCell, editingCell, rows, onFocusChange, onStartEdit, onCancelEdit, onCommitEdit, findNextEditableRow, findNextColumn]);
+  }, [focusedCell, editingCell, rows, onFocusChange, onStartEdit, onCancelEdit, onCommitEdit, onCopy, onPaste, findNextEditableRow, findNextColumn]);
 
   useEffect(() => {
     if (focusedCell && !editingCell) focusCell(focusedCell);
