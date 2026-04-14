@@ -622,7 +622,97 @@ Priority: DEFERRED — all current work is frontend with mock data. Backend desi
 - **Range copy/paste** (selecting a block of cells and copying) — future enhancement beyond single-cell copy/paste.
 - **Row templates as importable/exportable presets** — banks may want standardized templates that all analysts use. Template management UI is a future feature.
 - **Audit trail** — every value change should eventually be logged with timestamp, user, old value, new value. The append-only architecture supports this but the UI for viewing history is not yet designed.
+---
+
+## 22. PERSONAL & GLOBAL CASH FLOW ARCHITECTURE
+
+### Overview
+The personal financial statement is spread directly from source documents (1040, K-1s, personal financial statements) by the analyst. It is not auto-populated from entity spreads. The system provides a structured starting point via ID-tag-driven links, which the analyst confirms or overrides.
+
+### Three-Tier System-Assisted Assembly
+
+**Tier 1 — Entity to Personal:**
+Certain entity-level accounts carry tags linking them to a personal entity ID (owner ID). These accounts include but are not limited to:
+- Distributions / Dividends (per owner)
+- Management fees paid to individuals
+- Guaranteed payments (partnerships)
+- Intercompany loans to/from owners
+- Officer compensation
+
+At the entity level, these accounts are set up per owner (e.g., Distributions — Owner A, Distributions — Owner B), each tagged to the respective personal entity ID. For display purposes these collapse to a summary subtotal on the entity spread to avoid clutter. The granularity is present in the data but condensed in the view.
+
+Tagged values surface on the personal spread as system-suggested starting points only. The personal spread remains analyst-driven from source documents — the entity tag provides a reference and a cross-check, not an authoritative population.
+
+**Tier 2 — Personal and Entity to Global:**
+The system assembles a draft global cash flow worksheet by combining entity-level CAFDS (Cash Available for Debt Service) and personal cash flow. Owner ID tags are used to identify intercompany flows that appear on both sides and flag them for elimination rather than double-counting. The assembled global is presented as an analyst starting point, not a final output.
+
+**Tier 3 — Analyst Override at All Levels:**
+At every tier the analyst retains full control. The system-suggested values are a starting point only.
+
+### Link Management — Deliberate Override Pattern
+The link between an entity account and its corresponding personal or global line is **live by default**. Behavior:
+- If the underlying entity spread is updated, the linked personal/global value updates automatically.
+- Breaking a link is a **deliberate analyst action** — not triggered by simply typing over a value.
+- Breaking a link requires: (1) explicit disconnect action, (2) a reason/note, (3) an override value entered by the analyst.
+- The original system-derived value is always retained and visible alongside the override for audit and review purposes.
+- Link status is tracked per line as: `active` | `broken` | `never-linked`.
+
+### Double-Counting Elimination
+Double-counting elimination at the global level is **analyst-driven, not system-automated.** The system supports the analyst by:
+- Surfacing source entity tags on personal lines, making intercompany flows visible.
+- Flagging lines where the same dollars appear on both an entity spread and a personal spread via shared ID tags.
+- Providing note fields at the global line level for the analyst to document elimination decisions.
+
+This approach is intentional — automated elimination would require ownership percentage logic that does not reflect actual cash distributions in practice. The analyst who knows the file makes the elimination judgment; the system makes that judgment transparent and auditable.
+
+### Analyst Notes and Period-Over-Period Consistency
+Note fields at the cell/line level serve as the audit trail for grouping decisions, elimination rationale, and sourcing. These notes carry forward when a new period is opened for the same entity/group, giving subsequent analysts visibility into how prior periods were handled and enabling consistent methodology across the relationship over time.
+
+### Schema Implications
+- Entity accounts that can flow to personal carry a `personal_entity_id` tag field (nullable — only populated when the account is owner-specific).
+- A `personal_link` table tracks: source entity account, target personal line, link status, override value, override reason, override timestamp, analyst ID.
+- Global cash flow assembly logic references these link records to identify elimination candidates.
+- Personal and global spread tables are additive to the schema — they do not modify the core entity spread value architecture.
 
 ---
 
-*Architecture Document v4.0 + Session Updates (March 1 & March 3, 2026) — J-Spread*
+## 23. PROJECTIONS & MONTE CARLO — PLANNED ARCHITECTURE
+
+### Overview
+Each spread line item will carry an optional forward projection profile. The projection layer is a separate analytical module that reads historical spread data but does not modify it. This is a later-roadmap feature — the schema foundation accommodates it without changes to core tables.
+
+### Parameter Structure (Per Line Item)
+Each line item's projection profile includes:
+- **Distribution type** — user-defined, not assumed normal. Options include normal, log-normal, skewed, uniform, user-defined PDF.
+- **Slope / trend** — forward directional assumption (flat, growth rate, regression-derived).
+- **Noise factor** — variance around the trend.
+- **Correlation relationships** — links to other accounts (e.g., COGS correlated to Revenue, Receivables correlated to Revenue). Reflects real business behavior where accounts move together, not independently.
+
+### Data-Driven Parameter Discovery
+Where sufficient historical periods exist (ideally 5+ years), the spread data itself informs suggested starting parameters:
+- The system can suggest correlation coefficients between accounts based on observed historical behavior.
+- High-variance lines are flagged as such.
+- The analyst reviews and adjusts forward-looking assumptions from this informed baseline rather than starting cold.
+- Historical spread data does double duty: credit history and projection calibration input.
+
+### Projection Setup UI
+A dedicated projection setup interface (separate from the spread entry UI) allows analysts to:
+- Review system-suggested parameters.
+- Customize distribution type, slope, noise, and inter-account correlations per line.
+- Define forward period assumptions.
+This is a form-heavy but well-structured interface — a parameter configuration layer sitting above the spread data.
+
+### Monte Carlo Output
+Thousands of iterations are run against the projection profiles to produce distributions of key credit metrics rather than single point estimates. Outputs include:
+- Visual distributions of DSCR, leverage ratios, liquidity metrics across simulated periods.
+- Threshold probabilities (e.g., probability DSCR falls below 1.0x in Year 2).
+- A proprietary liquidity-based default probability metric (design TBD — specific to cash flow behavior captured through the spreading architecture).
+
+### Schema Implications (Additive — No Core Table Changes)
+- `projection_parameters` table — per entity, per account: distribution type, slope, noise, correlation links.
+- `projection_runs` table — Monte Carlo run metadata (timestamp, analyst, parameter snapshot).
+- `projection_results` table — output distributions, percentiles, threshold probabilities per run.
+- The inter-account correlation structure uses a self-referencing relationship on the accounts/tags table — worth designing deliberately when this phase is reached.
+---
+
+*Architecture Document v4.0 + Session Updates (March 1, March 3 & April 14, 2026) — J-Spread*
